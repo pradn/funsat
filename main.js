@@ -13,10 +13,10 @@ var DISABLED = -1;
 
 var stage;
 
-var STAGE_WIDTH = 800;
-var STAGE_HEIGHT = 800;
+var STAGE_WIDTH = 1000;
+var STAGE_HEIGHT = 1000;
 
-var BUTTON_SIZE = 25;
+var BUTTON_SIZE = 20;
 var GAP_BETWEEN_BUTTONS = BUTTON_SIZE/2;
 
 var ON_STRIPE_COLOR = "#ffe37a";
@@ -80,7 +80,6 @@ function evaluateStripes(state) {
                 break;
             }
         }
-        console.log(hasOnButton);
         stripeStates.push(hasOnButton);
     }
     return stripeStates;
@@ -145,7 +144,6 @@ function fillBoardRandomly(state, q) {
     for (var i = 0; i < state.column_count; i++) {
         for (var j = 0; j < state.row_count; j++) {
             var num = (Math.random() * 100) | 0;
-            console.log(num - 1);
             var val;
             if (num < 15) {
                 val = ON;
@@ -239,6 +237,32 @@ function ensureEachRowHasMoreThanOneButton(state, q) {
     }
 }
 
+function addMoreButtonsToEachRow(state, q, addCount) {
+    //assumes each row has exactly one column with a button
+    for (var row = 0; row < state.row_count; row++) {
+        if (rowButtonCount(state, q, row) != 1) {
+            alert("bbb");
+        }
+        var unusedCols = [];
+        for (let i = 0; i < state.column_count; i++) {
+            unusedCols.push(i);
+        }
+        unusedCols.splice(findFirstButtonInRow(state, q, row), 1);
+
+        for (var i = 0; i < addCount && unusedCols.length > 0; i++) {
+            let randomIndex = (Math.random() * unusedCols.length) | 0;
+            let randomCol = unusedCols[randomIndex];
+    
+            var num = (Math.random() * 100) | 0;
+            if (num < 50) {
+                q[randomCol][row] = ON;
+            } else {
+                q[randomCol][row] = OFF;
+            }
+        }
+    }
+}
+
 //guarantees puzzle is solvable
 function addRandomOnToEachRow(state, q) {
     var unusedCols = [];
@@ -261,7 +285,6 @@ function addRandomOnToEachRow(state, q) {
 function flipColumnsRandomly(state, q) {
     for (var i = 0; i < 100; i++) {
         let randomCol = (Math.random() * state.column_count) | 0;
-        console.log(randomCol);
         flipColumn(state, randomCol);
     }
 }
@@ -270,29 +293,63 @@ function generateBoard(state) {
     var q = createEmptyBoard(state);
     state.board = q;
     addRandomOnToEachRow(state, q);
-    //flipOnsToOffsRandomly(state, q);
-    fillGapsInBoardRandomly(state, q);
+    flipOnsToOffsRandomly(state, q);
+    //fillGapsInBoardRandomly(state, q);
+    addMoreButtonsToEachRow(state, q, 2);
     flipColumnsRandomly(state, q);
-    ensureEachRowHasMoreThanOneButton(state, q);
+    //ensureEachRowHasMoreThanOneButton(state, q);
     return q;
 }
 
-function newState() {
+function newState(cols, rows) {
     var state = {
         board: null,
         stage: null,
-        column_count: 10,
-        row_count: 20,
+        column_count: cols,
+        row_count: rows,
         boardStartX: 0,
         boardStartY: 0,
     }
     return state;
 }
 
+function countActivatedStripes(stripeStates) {
+    var count = 0;
+    for (var i = 0; i < stripeStates.length; i++) {
+        if (stripeStates[i]) {
+            count++;
+        }
+    }
+    return count;
+}
+
+// maybe place column buddies
+
+function getGoodState() {
+    var lowestActivated = 1000;
+    var bestState;
+
+    for (var i = 0; i < 20; i++) {
+        var state = newState(15, 20);
+        state.board = generateBoard(state);
+        var stripeStates = evaluateStripes(state);
+        var activated = countActivatedStripes(stripeStates);
+        console.log(activated);
+        if (activated < lowestActivated) {
+            lowestActivated = activated;
+            bestState = state;
+        }
+    }
+
+    return bestState;
+}
+
 function init() {
-    var state = newState();
-    //state.board = getBoard(state);
-    state.board = generateBoard(state);
+    // no minimization method
+    //var state = newState(15, 20);
+    //state.board = generateBoard(state);
+
+    var state = getGoodState();
     setMetrics(state);    
     state.stage = new createjs.Stage("demoCanvas");
     draw(state);
@@ -301,3 +358,8 @@ function init() {
 function handleTick(event) {
     stage.update();
 }
+
+//board gen
+// easiest to start with valid board game and then add transformations
+// ensure at least one on each row. if only one, player knows to set that one to ON.
+// too many in one column makes it too easy to activate lots of rows at once
