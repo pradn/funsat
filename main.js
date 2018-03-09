@@ -101,9 +101,9 @@ function createButton(state, i, j) {
     button.addEventListener("click", function(event) {
         flipColumn(state, i);
         if (won(evaluateStripes(state))) {
-
+            console.log("win!!");
         }
-        draw(state)
+        draw(state);
         state.stage.update();
     });
 
@@ -116,14 +116,6 @@ function drawStripe(state, row, stripeState) {
     stripe.graphics.rect(0, state.boardStartY + BUTTON_SIZE * row * 1.5 - (BUTTON_SIZE/4), 
         STAGE_WIDTH , BUTTON_SIZE + (BUTTON_SIZE/2));
     state.stage.addChild(stripe);
-}
-
-//doesnt work
-function drawBackground(stage) {
-    var bg = new createjs.Shape();
-    bg.graphics.beginFill("000000");
-    bg.graphics.rect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
-    //stage.addChild(bg);
 }
 
 function draw(state) {
@@ -140,10 +132,53 @@ function draw(state) {
     state.stage.update();
 }
 
+//unused
+function createViewModel(state) {
+    var buttons = createEmptyBoard(state, null);
+    forWholeBoard(state, function (nullVal, i, j) {
+        var buttonState = state.board[i][j];
+        if (buttonState == DISABLED) {
+            return null;
+        }    
+
+        var x = state.boardStartX + BUTTON_SIZE * i + GAP_BETWEEN_BUTTONS * i;
+        var y = state.boardStartY + BUTTON_SIZE * j * 1.5;
+        
+        var button = new createjs.Shape();
+        button.graphics.beginFill(stateToColor(buttonState));
+        button.graphics.setStrokeStyle(1,"round").beginStroke("#000").rect(x, y, BUTTON_SIZE, BUTTON_SIZE);
+        
+        button.addEventListener("click", function(event) {
+            //maybe use target
+            flipColumn(state, i);
+            if (won(evaluateStripes(state))) {
+                console.log("win!!");
+            }
+            draw(state);
+            state.stage.update();
+        });
+
+        state.stage.addChild(button);
+        return button;
+    });
+    state.buttons = buttons;
+
+    var stripes = [];
+    for(var i = 0; i < state.row_count; i++) {
+        var stripe = new createjs.Shape();
+        stripe.graphics.beginFill(stripeState ? ON_STRIPE_COLOR : OFF_STRIPE_COLOR);
+        stripe.graphics.rect(0, state.boardStartY + BUTTON_SIZE * row * 1.5 - (BUTTON_SIZE/4), 
+            STAGE_WIDTH , BUTTON_SIZE + (BUTTON_SIZE/2));
+        state.stage.addChild(stripe);
+        stripes.push(stripe);
+    }
+    state.stripes = stripes;
+}
+
 function forWholeBoard(state, fn) {
     for (var i = 0; i < state.column_count; i++) {
         for (var j = 0; j < state.row_count; j++) {
-            state.board[i][j] = fn(state.board[i][j]);
+            state.board[i][j] = fn(state.board[i][j], i, j);
         }
     }
 }
@@ -184,17 +219,17 @@ function fillGapsInBoardRandomly(state, q) {
 }
 
 function getBoard(state) {
-    var q = createEmptyBoard(state);
+    var q = createEmptyBoard(state, DISABLED);
     fillBoardRandomly(state, q);
     return q;
 }
 
-function createEmptyBoard(state) {
+function createEmptyBoard(state, defaultValue) {
     var q = [];
     for (var i = 0; i < state.column_count; i++) {
         var z = [];
         for (var j = 0; j < state.row_count; j++) {
-            z.push(DISABLED);
+            z.push(defaultValue);
         }
         q.push(z);
     }
@@ -352,7 +387,7 @@ function flipColumnsRandomly(state, q) {
 
 // lots of random buttons here and there
 function generateBoard(state) {
-    var q = createEmptyBoard(state);
+    var q = createEmptyBoard(state, DISABLED);
     state.board = q;
     addRandomOnToEachRow(state, q);
     flipOnsToOffsRandomly(state, q);
@@ -364,7 +399,7 @@ function generateBoard(state) {
 
 // a few buttons per row
 function generateBoardNew(state) {
-    var q = createEmptyBoard(state);
+    var q = createEmptyBoard(state, DISABLED);
     state.board = q;
     addRandomOnToEachRow(state, q);
     flipOnsToOffsRandomly(state, q);
@@ -375,12 +410,10 @@ function generateBoardNew(state) {
 
 // a few buttons per row
 function generateBoardWeighted(state) {
-    var q = createEmptyBoard(state);
+    var q = createEmptyBoard(state, DISABLED);
     state.board = q;
     addRandomOnToEachRow(state, q);
     flipOnsToOffsRandomly(state, q);
-    console.log(state.board);
-    //addMoreButtonsToEachRow(state, 1);
     addMoreButtonsToEachRowWeightedByColumnButtonCount(state, 2);
     flipColumnsRandomly(state, q);
     return q;
@@ -394,6 +427,9 @@ function newState(cols, rows) {
         row_count: rows,
         boardStartX: 0,
         boardStartY: 0,
+        stage: null,
+        buttons: null,
+        stripes: null
     }
     state.stage = new createjs.Stage("demoCanvas");
     createjs.Touch.enable(stage);
@@ -433,14 +469,33 @@ function getGoodState() {
     return bestState;
 }
 
+function introScreen(state) {
+    var bg = new createjs.Shape();
+    bg.graphics.beginFill("#ffe37a");
+    bg.graphics.rect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+    state.stage.addChild(bg);
+
+    var fontPx = STAGE_WIDTH/4;
+    var text = new createjs.Text("SAT!", "bold " + fontPx + "px Serif", "#FF");
+    text.x = STAGE_WIDTH/2 - text.getMeasuredWidth()/2;
+    text.y = STAGE_HEIGHT/4;
+    state.stage.addChild(text);
+
+    state.stage.update();
+}
+
 function init() {
     // no minimization method
     //var state = newState(15, 20);
     //state.board = generateBoard(state);
 
     var state = getGoodState();
+    console.log(state.board);
+    
     setMetrics(state);    
     draw(state);
+    
+    //introScreen(state);
 }
 
 //board gen
@@ -449,3 +504,14 @@ function init() {
 // too many in one column makes it too easy to activate lots of rows at once
 // distribute buttons along a row in inverse proprotion to # of buttons in that column already?
 // gaps are a problem. make it too easy. maybe an algo to go through and ensure each win point has a col and row alternative?
+
+
+// happy enough with the end results
+// never to do:
+// remove unused code
+// add intro screen, generate new level button, you win screen, be able to change level dimensions
+// but i'm not going to do all this because the interesting part was level gen
+
+// lesson learned:
+// put all state in one object. makes it easy to regen level, restart game
+// separate game logic (model), game loop (controller), view model (game UI objects), and renderer
