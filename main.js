@@ -515,3 +515,4 @@ function init() {
 // lesson learned:
 // put all state in one object. makes it easy to regen level, restart game
 // separate game logic (model), game loop (controller), view model (game UI objects), and renderer
+// use underscore or equivalent
